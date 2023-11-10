@@ -86,5 +86,3 @@ class WebNovelIndexing:
                 json.dump(novel_info_list, f, ensure_ascii=False, default=str, indent=4)
 
         return novel_info_list
-
-print('메롱')

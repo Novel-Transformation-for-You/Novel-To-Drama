@@ -22,3 +22,6 @@ node_modules/
 *.log
 *.swp
 .DS_Store
+
+# 데이터 파일 제외
+WebNovel/*/

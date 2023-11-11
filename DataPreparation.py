@@ -142,7 +142,7 @@ class WebNovelIndexing:
                     response = requests.get(link_per_epi)
                     if response.status_code == 200:
                         dom = BeautifulSoup(response.text, 'html.parser')
-                        filename = novel_id + "_" + re.sub("[\/#:?]", "", dom.select_one('title').text) # 파일명 = id_특문 제거된 제목
+                        filename = novel_id + "_" + re.sub('[\/:*?"<>|]', "", dom.select_one('title').text) # 파일명 = id_특문 제거된 제목
                         plist = dom.select('.detail_view_content p')
                         for tag in plist:
                             if tag.select('a'):

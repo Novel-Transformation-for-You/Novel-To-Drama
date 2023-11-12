@@ -3,23 +3,10 @@ import requests
 import re
 import json
 import os
+from tqdm import tqdm
 
-def link_change(text):
-    '''
-    발화자 이미지 링크로부터 ID를 추출합니다.
-    Args:
-        text : 발화자 이미지 링크입니다.
-    '''
-    pattern = re.compile(r'.+\.net/(\d+_?\w*)/.+\.jpg')
-    match = pattern.search(text)
-    if match:
-        id_ = match.group(1)
-        text = re.sub(r'https://.+=w80_2', id_+': ', text)
-    else:
-        print("No match found.")
-    return text
 
-class Novel:
+class Collection:
     def get_novel_info(self, save=True):
         """
         네이버 웹소설의 정보를 가져옵니다.
@@ -77,19 +64,19 @@ class Novel:
                     # 전체 회차 수 추가
                     novel['total_epi'] = re.search(
                         r'\d+', dom.select_one('.past_number').text).group(0)
-                    
+
                     # 발화자 유무 추가
                     response = requests.get(f"https://novel.naver.com/webnovel/detail?novelId={novel_id}&volumeNo=1")
                     if response.status_code == 200:
                         dom = BeautifulSoup(response.text, 'html.parser')
-                        if dom.select('.detail_view_content p a'): # 발화자가 존재한다면
+                        if dom.select('.detail_view_content p a'):  # 발화자가 존재한다면
                             novel['labeled'] = True
                         else:
                             novel['labeled'] = False
 
                     self.novel_info_list.append(novel)
 
-        if save == True:
+        if save is True:
             path = os.getcwd()
             folder_path = path + '/data'
 
@@ -102,7 +89,6 @@ class Novel:
 
         return self.novel_info_list
 
-    
     def get_download(self, novel_info_list, labeled_only=False):
         '''
         웹소설을 회차별로 다운로드합니다. 현재 작업중인 디렉토리에 txt파일 형태로 다운로드됩니다.
@@ -116,31 +102,38 @@ class Novel:
         webnovel = path + "/WebNovel"
         labeled_path = webnovel + "/Labeled"
         unlabeled_path = webnovel + "/Unlabeled"
+
         if not os.path.exists(labeled_path):
             os.makedirs(labeled_path)
+
         if not os.path.exists(unlabeled_path):
             os.makedirs(unlabeled_path)
-            
-        for novel in novel_info_list:
+
+        for novel in tqdm(novel_info_list):
             novel_id = novel['id']
             total_epi = novel['total_epi']
-            
+
             # 레이블/언레이블 데이터를 모두 수집하는 옵션
-            if labeled_only == False:
+            if labeled_only is False:
                 for epi in range(1, 1+int(total_epi)):
                     link_per_epi = f"https://novel.naver.com/webnovel/detail?novelId={novel_id}&volumeNo={epi}"
                     full_text = ""
                     response = requests.get(link_per_epi)
+
                     if response.status_code == 200:
                         dom = BeautifulSoup(response.text, 'html.parser')
-                        filename = novel_id + "_" + re.sub('[\\/:*?"<>|]', "", dom.select_one('title').text) # 파일명 = id_특문 제거된 제목
+
+                        # 파일명 = id_특문 제거된 제목
+                        filename = novel_id + "_" + re.sub('[\\/:*?"<>|]', "", dom.select_one('title').text)
                         plist = dom.select('.detail_view_content p')
+
                         for tag in plist:
                             if tag.select('a'):
                                 img_link = tag.select_one('a img').attrs['src']
-                                full_text += "\n" + link_change(img_link) + " : " + tag.text
+                                full_text += "\n" + img_link + " : " + tag.text
                             else:
-                                full_text += "\n" + tag.text    
+                                full_text += "\n" + tag.text
+
                         if novel['labeled']: # 화자 이미지가 존재한다면
                             with open(f'{labeled_path}/L{filename}.txt', 'w', encoding='utf-8') as fp:
                                 fp.write(full_text)
@@ -148,24 +141,27 @@ class Novel:
                              with open(f'{unlabeled_path}/U{filename}.txt', 'w', encoding='utf-8') as fp:
                                 fp.write(full_text)
                     else:
-                        print(f"{novel['title']}-{epi}화가 다운로드되지 않았습니다.")         
+                        print(f"{novel['title']}-{epi}화가 다운로드되지 않았습니다.")
+
             # 레이블 데이터만 수집하는 옵션
-            else: 
-                if novel['labeled']:                    
+            else:
+                if novel['labeled']:
                     for epi in range(1, 1+int(total_epi)):
                         link_per_epi = f"https://novel.naver.com/webnovel/detail?novelId={novel_id}&volumeNo={epi}"
                         full_text = ""
                         response = requests.get(link_per_epi)
+
                         if response.status_code == 200:
                             dom = BeautifulSoup(response.text, 'html.parser')
                             filename = novel_id + "_" + re.sub("[\/#:?]", "", dom.select_one('title').text) # 파일명 = id_특문 제거된 제목
                             plist = dom.select('.detail_view_content p')
+
                             for tag in plist:
                                 if tag.select('a'):
                                     img_link = tag.select_one('a img').attrs['src']
-                                    full_text += "\n" + link_change(img_link) + " : " + tag.text
+                                    full_text += "\n" + img_link + " : " + tag.text
                                 else:
-                                    full_text += "\n" + tag.text    
+                                    full_text += "\n" + tag.text
                             with open(f'{labeled_path}/L{filename}.txt', 'w', encoding='utf-8') as fp:
                                 fp.write(full_text)
                         else:

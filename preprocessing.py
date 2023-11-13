@@ -56,8 +56,8 @@ for filename in os.listdir(file_path):
 
     if os.path.isfile(filepath):
         with open(filepath, 'r', encoding='utf8') as f: 
-            match = re.search(r'(\d+)[.] (.+), (.+)  네이버웹소설.txt', filename)
-
+            match = re.search(r'[_#](\d)+[.]\s(.+?),\s(.+)\s', filename)
+            
             if match:
                 r, rtitle, novtitle = match.groups()               
                 content, id_ = link_to_id(preprocessing(f.read())) # 정의해둔 전처리함수로 읽어들인 파일 전처리를 수행합니다.
@@ -107,7 +107,7 @@ accum_novdf
 # 특수 문자 확인: 인용문의 종류 체크
 
 def extract_special_characters(text):
-    pattern = re.compile(r'[^\w\s|_|:|!|\.|?|…|－|―|]')
+    pattern = re.compile(r'[^\w\s|_|:|!|\.|?|…]')
     special_characters = list(set(re.findall(pattern, text)))
     
     return special_characters

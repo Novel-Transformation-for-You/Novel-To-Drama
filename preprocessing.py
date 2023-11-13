@@ -1,15 +1,18 @@
 import os
 import re
 import pandas as pd
+import json
+import tqdm
 
 # Functions to preprocess each file 
 # The title and text of the file follow the format of the Naver web novel
+
 
 def link_to_id(text):
     """
     (ko) 네이버 웹소설에서 등장인물을 표시하는 사진 링크를 가져와, id를 추출하는 전처리를 수행하는 함수.
     사진 링크가 있는 웹소설만을 데이터로 사용할 때 쓸 수 있는 함수로, 네이버 웹소설 형식에 맞춰져 있습니다.
-    
+
     (en) It's a function that takes a photo link which displays a character in a Naver web novel, 
     and performs a preprocessing process to extract ids used. 
 
@@ -35,11 +38,12 @@ def link_to_id(text):
             mod_text = re.sub(fr'https://.+?/{id_}.+=w80_2', f'{id_}: ', mod_text) #링크를 아이디로 변환
             ids.append(id_) 
 
-    return mod_text, ids #string tuple
-    
+    return mod_text, ids  # string tuple
+
+
 def preprocessing(text):
     return re.sub('\n+', '\n', text.strip())    
-    
+
 
 # %%
 # 데이터프레임으로 파일 정보 저장
@@ -98,6 +102,7 @@ def nov_concat(novdf):
     novs.columns = ['Title', 'Content', 'ID']
     return novs
 
+
 # print(nov_concat(novdf)['rcontent'][0])
 accum_novdf = nov_concat(novdf)
 accum_novdf
@@ -106,15 +111,76 @@ accum_novdf
 # Check Special Characters: To check quotes types
 # 특수 문자 확인: 인용문의 종류 체크
 
+
 def extract_special_characters(text):
     pattern = re.compile(r'[^\w\s|_|:|!|\.|?|…]')
     special_characters = list(set(re.findall(pattern, text)))
-    
+
     return special_characters
+
 
 print(*extract_special_characters(accum_novdf['Content'][1]), sep='\t')
 
 # %%
 
 
+def sum_all_text(PATH='', save=True, Label=False):
+    """
+    This function processes and organizes text data from Naver Web Novels.
+    
+    Parameters:
+        PATH (str): Path to the directory containing the Naver Web Novel text files.
+        save (bool): Optional flag to indicate whether to save the processed data as a JSON file.
+        Label (bool): Optional flag to indicate whether to separate the dialogue from the narrative text.
+    
+    Returns:
+        list_in_dic (list): List of dictionaries containing processed novel data.
+    """
+    os.chdir(PATH)
+    # txt 확장자를 가진 파일만 불러오기
+    file_list = [file for file in os.listdir() if file.endswith(".txt")]
+    list_in_dic = []
+
+    for file in tqdm(file_list):
+        novel = {}
+        f = open(file, 'r')
+        text = f.read()
+
+        name = file.split('.')
+        novel['id'] = name[0].split('_')[0][1:]
+
+        # title, epi_title 분리
+        novel['epi_title'] = name[1].split('네이버웹소설')[0].strip()
+        title = ', '.join(novel['epi_title'].split(',')[:-1])
+        novel['title'] = novel['epi_title'].split(',')[-1]
+        novel['epi_title'] = title
+
+        novel['epi'] = re.sub(r'[^0-9]', '', name[0].split('_')[1])
+        novel['contents'] = text
+
+        # contents 분리
+        new_con = list(re.sub('\n+', '\n', novel['contents']).split('\n'))
+        novel['contents'] = new_con
+
+        if Label is True:
+            con = list()
+            for i in novel['contents']:
+                try:
+                    if ':' in i:
+                        speakers = i.split(':')[1].split('/')[3]
+                        texts = ':'.join(i.split(':')[2:]).strip()
+                        con.append(f'{speakers} : {texts}')
+                    else:
+                        con.append(i.strip())
+                except:
+                    con.append(i.strip())
+            novel['contents'] = con
+
+        list_in_dic.append(novel)
+
+    if save is True:
+        with open("navers.json", "w", encoding='utf-8') as f:
+                        json.dump(list_in_dic, f, ensure_ascii=False, default=str, indent=4)
+
+    return list_in_dic
 

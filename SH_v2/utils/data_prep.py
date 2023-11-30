@@ -7,6 +7,7 @@ import pickle
 import jieba
 from fastprogress import progress_bar
 from ckonlpy.tag import Twitter
+twitter = Twitter()
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -72,8 +73,6 @@ def seg_and_mention_location(raw_sents_in_list, alias2id):
     """
     character_mention_poses = {}
     seg_sents = []
-    
-    twitter = Twitter()
 
     for sent_idx, sent in enumerate(raw_sents_in_list):
         # sent = "“我知道哩，你这样情况，在咱县贷款是确有困难！”"
@@ -238,7 +237,7 @@ def build_data_loader(data_file, alias2id, args, skip_only_one=False):
             one_hot_label: one-hot label of the true speaker on list(mention_poses.keys()).
             true_index: index of the speaker on list(mention_poses.keys()).
     """
-    twitter = Twitter()
+    # twitter = Twitter()
     for alias in alias2id:
         twitter.add_dictionary(alias, 'Noun')
         # return(print(okt.add_dictionary(alias, 'Noun')))

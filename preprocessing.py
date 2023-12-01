@@ -53,32 +53,30 @@ def preprocessing(text):
 # | Novel Name | Round | Round Name | Round Content (id preprocessed) | Character ids |
 
 file_path = './Novels_text/Labeled/'  
-novdf = pd.DataFrame({'novtitle':[], 'r':[], 'rtitle':[], 'rcontent':[], 'ids':[]})
+novdf = pd.DataFrame({'novtitle':[], 'r':[], 'rcontent':[], 'ids':[]})
 
 for filename in os.listdir(file_path):
     filepath = os.path.join(file_path, filename)
 
     if os.path.isfile(filepath):
         with open(filepath, 'r', encoding='utf8') as f: 
-            match = re.search(r'[_#](\d)+[.]\s(.+?),\s(.+)\s', filename)
+            r = re.search(r'\d+', filename.split('_')[1]).group()  
+            novtitle = re.sub('네이버웹소설.txt','', filename.split(',')[-1]).strip()         
+            content, id_ = link_to_id(preprocessing(f.read())) # 정의해둔 전처리함수로 읽어들인 파일 전처리를 수행합니다.
             
-            if match:
-                r, rtitle, novtitle = match.groups()               
-                content, id_ = link_to_id(preprocessing(f.read())) # 정의해둔 전처리함수로 읽어들인 파일 전처리를 수행합니다.
-                
-                # Create a new DataFrame for the current row
-                df = pd.DataFrame({'novtitle': [novtitle], 'r': [r], 'rtitle': [rtitle], 'rcontent': [content], 'ids': [id_]})
-                
-                # Concatenate the new DataFrame with the existing DataFrame
-                novdf = pd.concat([novdf, df], ignore_index=True)
-                novdf['r'] = novdf['r'].astype(int)
+            # Create a new DataFrame for the current row
+            df = pd.DataFrame({'novtitle': [novtitle], 'r': [r], 'rcontent': [content], 'ids': [id_]})
+            
+            # Concatenate the new DataFrame with the existing DataFrame
+            novdf = pd.concat([novdf, df], ignore_index=True)
+            novdf['r'] = novdf['r'].astype(int)
 
 # 소설 제목과 회차 순서대로 정렬 Sort in order of fiction titles and rounds
 novdf = novdf.sort_values(by=['novtitle', 'r'], ascending=[True, True]).reset_index(drop=True)
 novlist = list(set(novdf['novtitle']))
 
-print(novlist)
-novdf
+# print(novlist)
+# novdf
 
 # %%
 def nov_concat(novdf):

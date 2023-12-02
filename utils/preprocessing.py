@@ -4,7 +4,7 @@ import pandas as pd
 import json
 import tqdm
 
-# Functions to preprocess each file 
+# Functions to preprocess each file
 # The title and text of the file follow the format of the Naver web novel
 
 
@@ -13,8 +13,8 @@ def link_to_id(text):
     (ko) 네이버 웹소설에서 등장인물을 표시하는 사진 링크를 가져와, id를 추출하는 전처리를 수행하는 함수.
     사진 링크가 있는 웹소설만을 데이터로 사용할 때 쓸 수 있는 함수로, 네이버 웹소설 형식에 맞춰져 있습니다.
 
-    (en) It's a function that takes a photo link which displays a character in a Naver web novel, 
-    and performs a preprocessing process to extract ids used. 
+    (en) It's a function that takes a photo link which displays a character in a Naver web novel,
+    and performs a preprocessing process to extract ids used.
 
     논항 Args:
         text: 사진 링크가 포함된 네이버 웹소설 각 회차 컨텐츠(text).
@@ -26,7 +26,7 @@ def link_to_id(text):
         ids: 추출한 id 리스트 (중복 있음). 
              the extracted id list (with duplicate).
     """
-    pattern = re.compile(r'\.net/(\d+_\d+)/') # id extraction pattern
+    pattern = re.compile(r'\.net/(\d+_\d+)/')  # id extraction pattern
 
     matches = re.finditer(pattern, text)
     mod_text = text  # copy text to modify
@@ -35,14 +35,16 @@ def link_to_id(text):
     for match in matches:
         if match:
             id_ = match.group(1)
-            mod_text = re.sub(fr'https://.+?/{id_}.+=w80_2', f'{id_}: ', mod_text) #링크를 아이디로 변환
-            ids.append(id_) 
+            # 링크를 아이디로 변환
+            mod_text = re.sub(
+                fr'https://.+?/{id_}.+=w80_2', f'{id_}: ', mod_text)
+            ids.append(id_)
 
     return mod_text, ids  # string tuple
 
 
 def preprocessing(text):
-    return re.sub('\n+', '\n', text.strip())    
+    return re.sub('\n+', '\n', text.strip())
 
 
 # %%
@@ -52,41 +54,47 @@ def preprocessing(text):
 # Save file information as a data frame
 # | Novel Name | Round | Round Name | Round Content (id preprocessed) | Character ids |
 
-file_path = './Novels_text/Labeled/'  
-novdf = pd.DataFrame({'novtitle':[], 'r':[], 'rtitle':[], 'rcontent':[], 'ids':[]})
+file_path = './Novels_text/Labeled/'
+novdf = pd.DataFrame(
+    {'novtitle': [], 'r': [], 'rtitle': [], 'rcontent': [], 'ids': []})
 
 for filename in os.listdir(file_path):
     filepath = os.path.join(file_path, filename)
 
     if os.path.isfile(filepath):
-        with open(filepath, 'r', encoding='utf8') as f: 
+        with open(filepath, 'r', encoding='utf8') as f:
             match = re.search(r'[_#](\d)+[.]\s(.+?),\s(.+)\s', filename)
-            
+
             if match:
-                r, rtitle, novtitle = match.groups()               
-                content, id_ = link_to_id(preprocessing(f.read())) # 정의해둔 전처리함수로 읽어들인 파일 전처리를 수행합니다.
-                
+                r, rtitle, novtitle = match.groups()
+                # 정의해둔 전처리함수로 읽어들인 파일 전처리를 수행합니다.
+                content, id_ = link_to_id(preprocessing(f.read()))
+
                 # Create a new DataFrame for the current row
-                df = pd.DataFrame({'novtitle': [novtitle], 'r': [r], 'rtitle': [rtitle], 'rcontent': [content], 'ids': [id_]})
-                
+                df = pd.DataFrame({'novtitle': [novtitle], 'r': [r], 'rtitle': [
+                                  rtitle], 'rcontent': [content], 'ids': [id_]})
+
                 # Concatenate the new DataFrame with the existing DataFrame
                 novdf = pd.concat([novdf, df], ignore_index=True)
                 novdf['r'] = novdf['r'].astype(int)
 
 # 소설 제목과 회차 순서대로 정렬 Sort in order of fiction titles and rounds
-novdf = novdf.sort_values(by=['novtitle', 'r'], ascending=[True, True]).reset_index(drop=True)
+novdf = novdf.sort_values(by=['novtitle', 'r'], ascending=[
+                          True, True]).reset_index(drop=True)
 novlist = list(set(novdf['novtitle']))
 
 print(novlist)
 novdf
 
 # %%
+
+
 def nov_concat(novdf):
     '''
     (ko) 소설 별 인물과 회차를 누적해서 데이터프레임으로 저장합니다.
     각 회차의 구분을 위해 회차 간 구분자를 '\n***\n'으로 설정합니다. '***'은 하나의 회차 내에서도 장면 구분을 위해 쓰이는 구분자이므로, 이후 scene을 나눌 때 일괄적으로 처리할 수 있습니다. 
     작가가 한 회차의 마지막 문장과 다음 회차의 첫 문장을 동일하게 반복하는 경우를 드물지 않게 볼 수 있습니다. 후작업에서 참고 바랍니다. 
-    
+
     (en) It accumulates characters and episodes by novel and stores them as data frames.
     Note that the delimiter between rounds to '\n***\n' to separate each round. 
 
@@ -98,7 +106,8 @@ def nov_concat(novdf):
         nov_cont: | 소설 이름 | 회차 별 내용을 누적한 전체 내용 | 누적된 id | 으로 저장한 각 소설의 정보 데이터프레임
                   | Title | Content | ID | (dataframe)
     '''
-    novs = novdf.groupby('novtitle').agg({'rcontent':'\n***\n'.join, 'ids': lambda x: list(set(sum(x, [])))}).reset_index()
+    novs = novdf.groupby('novtitle').agg(
+        {'rcontent': '\n***\n'.join, 'ids': lambda x: list(set(sum(x, [])))}).reset_index()
     novs.columns = ['Title', 'Content', 'ID']
     return novs
 
@@ -127,12 +136,12 @@ print(*extract_special_characters(accum_novdf['Content'][1]), sep='\t')
 def sum_all_text(PATH='', save=True, Label=False):
     """
     This function processes and organizes text data from Naver Web Novels.
-    
+
     Parameters:
         PATH (str): Path to the directory containing the Naver Web Novel text files.
         save (bool): Optional flag to indicate whether to save the processed data as a JSON file.
         Label (bool): Optional flag to indicate whether to separate the dialogue from the narrative text.
-    
+
     Returns:
         list_in_dic (list): List of dictionaries containing processed novel data.
     """
@@ -180,7 +189,7 @@ def sum_all_text(PATH='', save=True, Label=False):
 
     if save is True:
         with open("navers.json", "w", encoding='utf-8') as f:
-                        json.dump(list_in_dic, f, ensure_ascii=False, default=str, indent=4)
+            json.dump(list_in_dic, f, ensure_ascii=False,
+                      default=str, indent=4)
 
     return list_in_dic
-

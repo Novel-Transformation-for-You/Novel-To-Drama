@@ -1,18 +1,14 @@
-# React 빌드 파일 제외
+# Ignore Files
+/.pytest_cache/
+/__pycache__/
+*.pyc*
+*.DS_Store*
 build/
 dist/
-node_modules/
 
-# FastAPI에서 생성된 파일 제외
-.mypy_cache/
-.pytest_cache/
-**/__pycache__/
-.coverage
-
-# 로컬 개발 환경 파일 제외
-.env
+# 로컬 개발 환경 파일 및 환경 변수 제외
+.env*
 .env.local
-.env.*.local
 
 # 특정 에디터 및 IDE 관련 파일 제외
 .vscode/
@@ -22,6 +18,3 @@ node_modules/
 *.log
 *.swp
 .DS_Store
-
-# 데이터 파일 제외
-WebNovel/*/

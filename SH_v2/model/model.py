@@ -151,7 +151,10 @@ class CSN(nn.Module):
             if -999 in accum_char_len:
                 idx = accum_char_len.index(-999)
                 accum_char_len[idx] = int((accum_char_len[idx-1] + accum_char_len[idx+1])/2)
-            elif len(accum_char_len) != len(cdd_sent_char_lens)+1:
+            while -999 in accum_char_len:
+                idx = accum_char_len.index(-999)
+                accum_char_len[idx] = int((accum_char_len[idx-1] + accum_char_len[idx+1])/2)
+            if len(accum_char_len) != len(cdd_sent_char_lens)+1:
                 accum_char_len.append(cnt)
 
             CSS_hid = bert_output['last_hidden_state'][0][1:sum(cdd_sent_char_lens) + 1]

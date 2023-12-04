@@ -1,4 +1,4 @@
-# 💡 RECOGNIZE-SPEAKERS-IN-TEXT 📄
+# 💡 Novel-To-Drama 📄
 
 **모델 설명**: 네이버 웹소설 텍스트를 드라마 각본으로 변환해주는 모델입니다. 
 

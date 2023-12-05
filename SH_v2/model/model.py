@@ -102,13 +102,13 @@ class CSN(nn.Module):
         ctx_hid = []
         cdd_hid = []
         
+        unk_loc_li = []
+        unk_loc = 0
         for i, (cdd_sent_char_lens, cdd_mention_pos, cdd_quote_idx) in enumerate(zip(sent_char_lens, mention_poses, quote_idxes)):
-
+            unk_loc += 1
             bert_output = self.bert_model(torch.tensor([features[i].input_ids], dtype=torch.long).to(device), token_type_ids=None, 
                 attention_mask=torch.tensor([features[i].input_mask], dtype=torch.long).to(device))
-
             modified_list = [s.replace('#', '') for s in tokens_list[i]]
-
 
             import re
             cnt = 1
@@ -121,12 +121,11 @@ class CSN(nn.Module):
                 result_string = ''.join(txt)
                 replace_dict = {']': r'\]', '[': r'\[', '?': r'\?', '-': r'\-', '!': r'\!'}
                 string_processing = result_string[-7:].translate(str.maketrans(replace_dict))
-
+                    
                 pattern = re.compile(rf'[{string_processing}]')
-
                 cnt = 1
                 if num_check == 1000:
-                        accum_char_len.append(num_vid)     
+                        accum_char_len.append(num_vid)    
                 num_check = 1000
                 for string in modified_list:
                     string_nospace = string.replace(' ','')
@@ -146,20 +145,16 @@ class CSN(nn.Module):
                         else:
                             verify = 0
                     cnt += 1
-                
-            # 빈 부분 해결
+            
+            if num_check == 1000:
+                accum_char_len.append(num_vid) 
+
             if -999 in accum_char_len:
-                idx = accum_char_len.index(-999)
-                accum_char_len[idx] = int((accum_char_len[idx-1] + accum_char_len[idx+1])/2)
-            while -999 in accum_char_len:
-                idx = accum_char_len.index(-999)
-                accum_char_len[idx] = int((accum_char_len[idx-1] + accum_char_len[idx+1])/2)
-            if len(accum_char_len) != len(cdd_sent_char_lens)+1:
-                accum_char_len.append(cnt)
+                unk_loc_li.append(unk_loc)
+                continue
 
             CSS_hid = bert_output['last_hidden_state'][0][1:sum(cdd_sent_char_lens) + 1]
             qs_hid.append(CSS_hid[accum_char_len[cdd_quote_idx]:accum_char_len[cdd_quote_idx + 1]])
-
 
             ## 발화자 부분 찾아서 - bert tokenizer 된 부분을 인덱싱 하는 부분
             cnt = 1
@@ -168,7 +163,6 @@ class CSN(nn.Module):
             name = cut_css[i][cdd_mention_pos[0]][cdd_mention_pos[3]]
             pattern_name = re.compile(rf'[{name}]')
             pattern_unk = re.compile(rf'[\[UNK\]]')
-
             if len(accum_char_len) < cdd_mention_pos[0]+1:
                 maxx_len = accum_char_len[len(accum_char_len)-1] 
             elif len(accum_char_len) == cdd_mention_pos[0]+1:
@@ -205,7 +199,7 @@ class CSN(nn.Module):
                 cdd_mention_pos_bert_li.extend([int(cdd_mention_pos[1] * accum_char_len[-1]/sum([i for i in cdd_sent_char_lens])), int(cdd_mention_pos[2] * accum_char_len[-1]/sum([i for i in cdd_sent_char_lens]))])
             if cdd_mention_pos_bert_li[0] == cdd_mention_pos_bert_li[1]:
                 cdd_mention_pos_bert_li[1] = cdd_mention_pos_bert_li[1]+1
-                
+
             if len(cdd_sent_char_lens) == 1:
                 ctx_hid.append(torch.zeros(1, CSS_hid.size(1)).to(device))
             elif cdd_mention_pos[0] == 0:
@@ -213,11 +207,9 @@ class CSN(nn.Module):
             else:
                 ctx_hid.append(CSS_hid[accum_char_len[1]:])
             
-
             cdd_mention_pos_bert = (cdd_mention_pos[0], cdd_mention_pos_bert_li[0], cdd_mention_pos_bert_li[1])
             cdd_hid.append(CSS_hid[cdd_mention_pos_bert[1]:cdd_mention_pos_bert[2]])
 
-        # pooling
         qs_rep = self.pooling(qs_hid)
         ctx_rep = self.pooling(ctx_hid)
         cdd_rep = self.pooling(cdd_hid)
@@ -230,6 +222,11 @@ class CSN(nn.Module):
         
         # scoring
         scores = self.mlp_scorer(feature_vector).view(-1)
+
+        for i in unk_loc_li:
+            new_element = torch.tensor([-0.9000], requires_grad=True)
+            index_to_insert = i-1
+            scores = torch.cat((scores[:index_to_insert], new_element, scores[index_to_insert:]), dim=0)
         scores_false = [scores[i] for i in range(scores.size(0)) if i != true_index]
         scores_true = [scores[true_index] for i in range(scores.size(0) - 1)]
 

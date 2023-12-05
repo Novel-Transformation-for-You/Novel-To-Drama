@@ -182,7 +182,9 @@ def create_CSS(seg_sents, candidate_mention_poses, ws, max_len):
         mention_pos_left = sum(sent_char_lens[:mention_pos[0]]) + sum(len(x) for x in cut_CSS[mention_pos[0]][:mention_pos[1]])
         mention_pos_right = mention_pos_left + len(cut_CSS[mention_pos[0]][mention_pos[1]])
         mention_pos = (mention_pos[0], mention_pos_left, mention_pos_right, mention_pos[1])
-        cat_CSS = ''.join([''.join(sent) for sent in cut_CSS])
+        # cat_CSS = ''.join([''.join(sent) for sent in cut_CSS])
+        cat_CSS = ' '.join([' '.join(sent) for sent in cut_CSS])
+
 
         # print('mention pos2', mention_pos)
 

@@ -210,6 +210,11 @@ class CSN(nn.Module):
             cdd_mention_pos_bert = (cdd_mention_pos[0], cdd_mention_pos_bert_li[0], cdd_mention_pos_bert_li[1])
             cdd_hid.append(CSS_hid[cdd_mention_pos_bert[1]:cdd_mention_pos_bert[2]])
 
+        if qs_hid == []:
+            scores = '1'
+            scores_false = 1
+            scores_true = 1
+            return scores, scores_false, scores_true
         qs_rep = self.pooling(qs_hid)
         ctx_rep = self.pooling(ctx_hid)
         cdd_rep = self.pooling(cdd_hid)

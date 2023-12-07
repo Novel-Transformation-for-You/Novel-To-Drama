@@ -145,7 +145,8 @@ def train():
                 # print('cut_css 확인해보죠오오오오', cut_css)
                 # print(len(cut_css))
                 scores, scores_false, scores_true = model(features, sent_char_lens, mention_poses, quote_idxes, true_index, device, tokens_list, cut_css)
-
+                if scores == '1':
+                    continue
                 # backward propagation and weights update
                 for x, y in zip(scores_false, scores_true):
                     # compute loss
@@ -216,6 +217,8 @@ def train():
                     # features = convert_examples_to_features(examples=CSSs, tokenizer=tokenizer)
                     features, tokens_list = convert_examples_to_features(CSSs, tokenizer)
                     scores, scores_false, scores_true = model(features, sent_char_lens, mention_poses, quote_idxes, true_index, device, tokens_list, cut_css)
+                    # if quotes have unk, ignore that case
+                    # 인용문이 비어 있을 때 대체
                     if scores == '1':
                         continue
                     loss_list = [loss_fn(x.unsqueeze(0), y.unsqueeze(0), torch.tensor(-1.0).unsqueeze(0).to(device)) for x, y in zip(scores_false, scores_true)]

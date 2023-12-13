@@ -119,7 +119,8 @@ def create_CSS(seg_sents, candidate_mention_poses, ws, max_len):
         many_quote_idx: the sentence-level index of quote sentence in CSS.
 
     """
-    assert len(seg_sents) == ws * 2 + 1
+    # 21줄이 안되더라도 에러가 뜨지 않도록 설정
+    # assert len(seg_sents) == ws * 2 + 1
 
     def max_len_cut(seg_sents, mention_pos):
         """
@@ -260,7 +261,11 @@ def build_data_loader(data_file, alias2id, args, skip_only_one=False):
         if offset == 22:
             speaker_name = line.strip().split()[-1]
             # segmentation and character mention location
-            seg_sents, candidate_mention_poses = seg_and_mention_location(raw_sents_in_list, alias2id)
+            # 빈 리스트는 제거합니다.
+            filtered_list = [li for li in raw_sents_in_list if li]
+            seg_sents, candidate_mention_poses = seg_and_mention_location(filtered_list, alias2id)
+            # if skip_only_one and len(candidate_mention_poses) == 1:
+            #     continue
             CSSs, sent_char_lens, mention_poses, quote_idxes, cut_css = create_CSS(seg_sents, 
                                                                           candidate_mention_poses, 
                                                                           args.ws, 

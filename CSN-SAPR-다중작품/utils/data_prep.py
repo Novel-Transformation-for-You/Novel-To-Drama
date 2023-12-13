@@ -48,13 +48,13 @@ def NML(seg_sents, mention_positions, ws):
     
     sorted_positions = sorted(mention_positions, key=lambda x: word_dist(x))
 
-    # trick
-    if seg_sents[ws - 1][-1] == '：':
-        # if the preceding sentence ends with '：'
-        for pos in sorted_positions:
-            # search candidate mention from left-side context
-            if pos[0] < ws:
-                return pos
+    # # trick
+    # if seg_sents[ws - 1][-1] == '：':
+    #     # if the preceding sentence ends with '：'
+    #     for pos in sorted_positions:
+    #         # search candidate mention from left-side context
+    #         if pos[0] < ws:
+    #             return pos
 
     return sorted_positions[0]
 
@@ -74,7 +74,6 @@ def seg_and_mention_location(raw_sents_in_list, alias2id):
     """
     character_mention_poses = {}
     seg_sents = []
-    # seg_sent_in_raw = []
     id_pattern = ['&C{:02d}&'.format(i) for i in range(51)]
 
     for sent_idx, sent in enumerate(raw_sents_in_list):
@@ -82,13 +81,17 @@ def seg_and_mention_location(raw_sents_in_list, alias2id):
 
         for word_idx, word in enumerate(raw_sent_with_split):
             match =  re.search(r'&C\d{1,2}&', word)
+
             if match:
                 result = match.group(0)
+
                 if alias2id[result] in character_mention_poses:
                     character_mention_poses[alias2id[result]].append([sent_idx, word_idx])
                 else:
                     character_mention_poses[alias2id[result]] = [[sent_idx, word_idx]]
+
         seg_sents.append(raw_sent_with_split)
+
     return seg_sents, character_mention_poses
 
 
@@ -116,7 +119,6 @@ def create_CSS(seg_sents, candidate_mention_poses, ws, max_len):
         many_quote_idx: the sentence-level index of quote sentence in CSS.
 
     """
-    
     assert len(seg_sents) == ws * 2 + 1
 
     def max_len_cut(seg_sents, mention_pos):
@@ -164,6 +166,7 @@ def create_CSS(seg_sents, candidate_mention_poses, ws, max_len):
     for candidate_idx in candidate_mention_poses.keys():
 
         nearest_pos = NML(seg_sents, candidate_mention_poses[candidate_idx], ws)
+
         if nearest_pos[0] <= ws:
             CSS = copy.deepcopy(seg_sents[nearest_pos[0]:ws + 1])
             mention_pos = [0, nearest_pos[1]]
@@ -236,7 +239,6 @@ def build_data_loader(data_file, alias2id, args, skip_only_one=False):
     for alias in alias2id:
         twitter.add_dictionary(alias, 'Noun')
 
-
     # load instances from file
     with open(data_file, 'r', encoding='utf-8') as fin:
         data_lines = fin.readlines()
@@ -248,6 +250,7 @@ def build_data_loader(data_file, alias2id, args, skip_only_one=False):
         offset = i % 31
         
         if offset == 0:
+            instance_index = line.strip().split()[-1]
             raw_sents_in_list = []
             continue
 
@@ -258,12 +261,11 @@ def build_data_loader(data_file, alias2id, args, skip_only_one=False):
             speaker_name = line.strip().split()[-1]
             # segmentation and character mention location
             seg_sents, candidate_mention_poses = seg_and_mention_location(raw_sents_in_list, alias2id)
-            # if skip_only_one and len(candidate_mention_poses) == 1:
-            #     continue
             CSSs, sent_char_lens, mention_poses, quote_idxes, cut_css = create_CSS(seg_sents, 
                                                                           candidate_mention_poses, 
                                                                           args.ws, 
                                                                           args.length_limit)
+            candidates_list = list(candidate_mention_poses.keys())
             one_hot_label = [0 if character_idx != alias2id[speaker_name] else 1 
                              for character_idx in candidate_mention_poses.keys()]
             true_index = one_hot_label.index(1) if 1 in one_hot_label else 0
@@ -271,7 +273,7 @@ def build_data_loader(data_file, alias2id, args, skip_only_one=False):
         if offset == 24:
             category = line.strip().split()[-1]
         if offset == 25:
-            Name = line.strip().split()[-1]
+            Name = ' '.join(line.strip().split()[1:])
         if offset == 26:
             Scene = line.strip().split()[-1]
         if offset == 27:
@@ -281,7 +283,7 @@ def build_data_loader(data_file, alias2id, args, skip_only_one=False):
         if offset == 29:
             Cut_position = line.strip().split()[-1]
             data_list.append((seg_sents, CSSs, sent_char_lens, mention_poses, 
-                              quote_idxes, cut_css, one_hot_label, true_index, category, Name, Scene, Place, Time, Cut_position))
+                              quote_idxes, cut_css, one_hot_label, true_index, category, Name, Scene, Place, Time, Cut_position, candidates_list, instance_index))
 
     return DataLoader(ISDataset(data_list), batch_size=1, collate_fn=lambda x: x[0])
 

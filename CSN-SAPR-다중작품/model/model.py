@@ -30,8 +30,6 @@ class SeqPooling(nn.Module):
 
     def max_pool(self, seq):
         return seq.max(0)[0]
-        print(seq)
-        return seq.max(0)
 
     def mean_pool(self, seq):
         return seq.mean(0)
@@ -46,7 +44,6 @@ class SeqPooling(nn.Module):
         pooling_fn = {'max_pooling': self.max_pool,
                       'mean_pooling': self.mean_pool,
                       'attentive_pooling': self.attn_pool}
-        # print(seq)
         pooled_seq = [pooling_fn[self.pooling_type](seq) for seq in batch_seq]
         return torch.stack(pooled_seq, dim=0)
 
@@ -109,6 +106,7 @@ class CSN(nn.Module):
         unk_loc = 0
         for i, (cdd_sent_char_lens, cdd_mention_pos, cdd_quote_idx) in enumerate(zip(sent_char_lens, mention_poses, quote_idxes)):
             unk_loc += 1
+
             bert_output = self.bert_model(torch.tensor([features[i].input_ids], dtype=torch.long).to(device), token_type_ids=None, 
                 attention_mask=torch.tensor([features[i].input_mask], dtype=torch.long).to(device))
 
@@ -151,32 +149,28 @@ class CSN(nn.Module):
             
             if num_check == 1000:
                 accum_char_len.append(num_vid) 
-
-            # 빈 부분 해결
             if -999 in accum_char_len:
                 unk_loc_li.append(unk_loc)
                 continue
 
             CSS_hid = bert_output['last_hidden_state'][0][1:sum(cdd_sent_char_lens) + 1]
+
             qs_hid.append(CSS_hid[accum_char_len[cdd_quote_idx]:accum_char_len[cdd_quote_idx + 1]])
 
-            # 발화자 부분 찾아서 - bert tokenizer 된 부분을 인덱싱 하는 부분
+            ## 발화자 부분 찾아서 - bert tokenizer 된 부분을 인덱싱 하는 부분
             cnt = 1
             cdd_mention_pos_bert_li = []
             cdd_mention_pos_unk = []
             name = cut_css[i][cdd_mention_pos[0]][cdd_mention_pos[3]]
-
             # extract only name
             # 이름만 추출
             cdd_pattern = re.compile(r'&C[0-5][0-9]&')
             name_process = cdd_pattern.search(name)
 
-
             # find candidate location in bert output
             # 버트 결과에서 발화자 위치를 찾습니다
             pattern_unk = re.compile(rf'[\[UNK\]]')
-
-            # 이 부분은 결과를 찾게 되면, 더 이상 넘어가지 않도록 하는 코드 입니다
+            # 이 부분은 결과를 찾게 되면, 더 이상 넘어가지 않도록 하는 코드 입니다. 
             if len(accum_char_len) < cdd_mention_pos[0]+1:
                 maxx_len = accum_char_len[len(accum_char_len)-1] 
             elif len(accum_char_len) == cdd_mention_pos[0]+1:
@@ -184,7 +178,7 @@ class CSN(nn.Module):
             else:
                 maxx_len = accum_char_len[cdd_mention_pos[0]+1] 
 
-            # 포함되는 발화자를 찾기 위한 코드
+            # 포함되는 발화자를 찾기 위해.
             start_name = None
             name_match = '&'
             for string in modified_list:
@@ -220,7 +214,6 @@ class CSN(nn.Module):
             # ctx 결정하는 코드. candidate 주변 정보 추출
             if len(cdd_sent_char_lens) == 1:  # 하나일 경우에는 전체 부분을 가져온다.
                 ctx_hid.append(torch.zeros(1, CSS_hid.size(1)).to(device))
-                print(CSS_hid.size(1))
             elif cdd_mention_pos[0] == 0:  # 만약 앞에 발화자가 있을 경우엔 앞 문장부터, 마지막(인용문) 전까지 가져온다. 
                 ctx_hid.append(CSS_hid[:accum_char_len[-2]])
             else:  # 마지막으로 발화자가 뒤에 있을 경우에는 두번째 부터 끝까지 가져온다.
@@ -259,5 +252,6 @@ class CSN(nn.Module):
         scores_true = [scores[true_index] for i in range(scores.size(0) - 1)]
 
         return scores, scores_false, scores_true
+
 
         

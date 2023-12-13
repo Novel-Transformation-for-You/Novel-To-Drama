@@ -64,8 +64,13 @@ def train():
     dev_file = args.dev_file
     test_file = args.test_file
     name_list_path = args.name_list_path
+    namelist_file = args.namelist_file
 
-    alias2id = get_alias2id(name_list_path) # 그냥 ID dict 인듯?
+    # 작품 별 등장인물 이름 가져오기
+    with open(namelist_file, 'r', encoding='utf-8') as file:
+        name_list_per_novel = json.load(file)
+
+    alias2id = get_alias2id(name_list_path)
 
     # build training, development and test data loaders
     train_data = build_data_loader(train_file, alias2id, args, skip_only_one=True)
@@ -80,10 +85,18 @@ def train():
     # example
     print('##############DEV EXAMPLE#################')
     dev_test_iter = iter(dev_data)
-    _, CSSs, sent_char_lens, mention_poses, quote_idxes, cut_css, one_hot_label, true_index, category, Name, Scene, Place, Time, Cut_position = dev_test_iter.next()
+    _, CSSs, sent_char_lens, mention_poses, quote_idxes, cut_css, one_hot_label, true_index, category, Name, Scene, Place, Time, Cut_position, candidates_list, instance_index = dev_test_iter.next()
+    print('Candidate-specific segments:')
+    print(CSSs)
+    print('Nearest mention positions:')
+    print(mention_poses)
     test_test_iter = iter(test_data)
     print('##############TEST EXAMPLE#################')
-    _, CSSs, sent_char_lens, mention_poses, quote_idxes, cut_css, one_hot_label, true_index, category, Name, Scene, Place, Time, Cut_position = test_test_iter.next()
+    _, CSSs, sent_char_lens, mention_poses, quote_idxes, cut_css, one_hot_label, true_index, category, Name, Scene, Place, Time, Cut_position, candidates_list, instance_index = test_test_iter.next()
+    print('Candidate-specific segments:')
+    print(CSSs)
+    print('Nearest mention positions:')
+    print(mention_poses)
 
     # initialize model
     tokenizer = AutoTokenizer.from_pretrained(args.bert_pretrained_dir)
@@ -126,7 +139,7 @@ def train():
         optimizer.zero_grad()
 
         print('Epoch: %d' % (epoch + 1))
-        for i, (_, CSSs, sent_char_lens, mention_poses, quote_idxes, cut_css, one_hot_label, true_index, category, Name, Scene, Place, Time, Cut_position) \
+        for i, (_, CSSs, sent_char_lens, mention_poses, quote_idxes, cut_css, one_hot_label, true_index, category, Name, Scene, Place, Time, Cut_position, candidates_list, instance_index) \
             in enumerate(progress_bar(train_data, total=len(train_data), parent=epoch_bar)):
             
             try:
@@ -197,7 +210,7 @@ def train():
 
             eval_sum_loss = 0
 
-            for _, CSSs, sent_char_lens, mention_poses, quote_idxes,  cut_css, _, true_index, category, Name, Scene, Place, Time, Cut_position \
+            for _, CSSs, sent_char_lens, mention_poses, quote_idxes,  cut_css, _, true_index, category, Name, Scene, Place, Time, Cut_position, candidates_list, instance_index \
                 in progress_bar(eval_data, total=len(eval_data), parent=epoch_bar):
                 
                 with torch.no_grad():
@@ -224,6 +237,19 @@ def train():
                 if category == 'latent':
                     latent_eval_acc_numerator += correct
                     latent_eval_acc_denominator += 1
+                if correct == 0:
+                    print('아쉽게도 틀렸습니다.')
+                    print(f'{Name} 작품의 인스턴스 {instance_index}에서 에러가 났습니다. {candidates_list}에서 {true_index}를 맞췄어야 하는데 {scores.max(0)[1].item()}을 골랐습니다.')
+                elif correct == 1:
+                    print('대단해요! 맞췄어요.')
+                    name_idx = candidates_list[true_index]
+                    if len(str(name_idx)) == 1:
+                        name_idx = '0'+str(name_idx)
+                    chr_name = f'&C{name_idx}&'
+                    rst_name = [name_list_per_novel[idx][chr_name][0] for idx, item in enumerate(name_list_per_novel) if item['title'] == Name+'  ']
+                    print(f'{Name} 작품의 인스턴스 {instance_index}의 발화자는 {rst_name}입니다.')
+                    print(f'장소는 {Place}이고, 시간은 {Time} 입니다.')
+
 
             overall_eval_acc = overall_eval_acc_numerator / overall_eval_acc_denominator
             # explicit_eval_acc = explicit_eval_acc_numerator / explicit_eval_acc_denominator
@@ -298,6 +324,7 @@ def train():
         print('------------------------------------------------------')
         if new_best == False:
             overall_test_acc = 0
+        # print('overall_test_acc', overall_test_acc)
     return best_overall_dev_acc, overall_test_acc
 
 
